@@ -1,0 +1,20 @@
+# 本地工具与依赖
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+Thumbs.db
+.DS_Store
+# Office 打开文件时产生的临时锁文件
+~$*
+# Keil 个人设置与可再生成产物
+Keil/Objects/
+Keil/Listings/
+Keil/_verify/
+*.uvguix.*
+*.uvoptx
+# 超出 GitHub 普通 Git 文件限制；保留本机原件，获取方式见工具说明
+工具/*.pack

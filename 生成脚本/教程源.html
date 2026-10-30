@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>电路模型探究装置 · 从零到跑通</title>
+<style>
+@page { size: A4; margin: 2.4cm 2.4cm 2.2cm 2.4cm; }
+* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: "宋体", serif; font-size: 10.5pt; line-height: 1.62; color: #000; }
+h1 { font-family: "黑体", sans-serif; font-size: 15pt; color: #1F334E; margin: 20pt 0 8pt 0; page-break-after: avoid; }
+h2 { font-family: "黑体", sans-serif; font-size: 11.5pt; color: #2A4566; margin: 13pt 0 5pt 0; page-break-after: avoid; }
+h3 { font-family: "黑体", sans-serif; font-size: 10.5pt; color: #2A4566; margin: 10pt 0 4pt 0; page-break-after: avoid; }
+p { margin: 4pt 0; text-indent: 2em; text-align: justify; }
+p.ni { text-indent: 0; }
+ul, ol { margin: 4pt 0 4pt 1.6em; }
+li { margin: 2pt 0; }
+table { border-collapse: collapse; width: 96%; margin: 6pt 0 10pt 0; font-size: 9pt; }
+th { background-color: #E8EDF4; border: 1px solid #9AA7B8; padding: 3pt 5pt; font-family: "黑体", sans-serif; font-size: 9pt; text-align: left; }
+td { border: 1px solid #9AA7B8; padding: 3pt 5pt; vertical-align: top; }
+pre { background-color: #F5F6F8; border-left: 3pt solid #8FA8C8; padding: 6pt 9pt; font-family: Consolas, "Courier New", monospace; font-size: 8.5pt; line-height: 1.35; margin: 6pt 0 10pt 0; }
+code { font-family: Consolas, "Courier New", monospace; font-size: 9pt; }
+.cap { font-family: "黑体", sans-serif; font-size: 9pt; margin: 8pt 0 2pt 0; page-break-after: avoid; text-indent: 0; }
+.note { background-color: #F2F6FB; border-left: 3pt solid #5B8BC9; padding: 6pt 10pt; margin: 8pt 0; font-size: 9.5pt; text-indent: 0; }
+.warn { background-color: #FDF3F2; border-left: 3pt solid #C0504D; padding: 6pt 10pt; margin: 8pt 0; font-size: 9.5pt; text-indent: 0; }
+.pb { page-break-before: always; }
+.cover { text-align: center; margin-top: 4.2cm; }
+.cover .t1 { font-family: "黑体", sans-serif; font-size: 26pt; color: #1F334E; letter-spacing: 2pt; }
+.cover .t2 { font-family: "黑体", sans-serif; font-size: 14pt; color: #2A4566; margin-top: 14pt; }
+.cover .t3 { font-size: 11pt; color: #555; margin-top: 30pt; }
+.cover .line { border-top: 1.5pt solid #1F334E; width: 62%; margin: 18pt auto; }
+.toc { font-size: 10pt; line-height: 1.9; }
+.toc div { text-indent: 0; }
+.toc .l2 { padding-left: 1.8em; color: #333; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="t1">电路模型探究装置</div>
+  <div class="t2">从零到跑通 · 完整操作教程</div>
+  <div class="line"></div>
+  <div class="t3">主控 STM32F407VET6　·　纯寄存器实现　·　无 HAL / 无 CubeMX</div>
+  <div class="t3">版本 1.1　　2026 年 10 月 30 日</div>
+</div>
+
+<div class="pb"></div>
+<h1>目录</h1>
+<div class="toc">
+<div>1　这个装置是做什么的</div>
+<div>2　硬件清单</div>
+<div>3　接线</div>
+<div class="l2">3.1　引脚定义　3.2　三档接法　3.3　三条铁律　3.4　SWD 接法　3.5　DFU 接法</div>
+<div>4　软件准备</div>
+<div class="l2">4.1　Keil MDK　4.2　器件包　4.3　串口驱动　4.4　烧录驱动</div>
+<div>5　编译</div>
+<div class="l2">5.1　打开工程　5.2　编译　5.3　检查产物　5.4　编译报错对照</div>
+<div>6　烧录</div>
+<div class="l2">6.1　路线 A：USB DFU（已实测）　6.2　路线 B：ST-Link SWD　6.3　烧完必做</div>
+<div>7　上电自检</div>
+<div>8　五级测试</div>
+<div class="l2">L1 串口　L2 波形　L3 回环　L4 开环控制　L5 辨识</div>
+<div>9　命令速查</div>
+<div>10　故障排查总表</div>
+<div>11　目录结构说明</div>
+<div>附录 A　关键参数</div>
+<div>附录 B　已知模型电路</div>
+<div>附录 C　本版变更记录</div>
+</div>
+
+<div class="pb"></div>
+<h1>1　这个装置是做什么的</h1>
+
+<h2>1.1　要解决的问题</h2>
+<p>给一个未知的模拟网络（电阻、电感、电容搭成的低通、高通、带通、带阻四种之一），要在不拆开、不查手册的前提下，测出它的<b>类型、特征频率 f<sub>0</sub>、品质因数 Q、直流增益 K</b>。传统做法是信号发生器加示波器，逐点扫频、手工记录、事后拟合，一个网络要半小时以上。</p>
+<p>本装置把这三件事集成到一块 STM32F407 上：自己产生正弦激励、自己采集输出、自己拟合模型。串口发一条 <code>L</code>，0.5 到 0.8 秒后直接把四个参数打印出来。</p>
+
+<h2>1.2　三个功能</h2>
+<table>
+<tr><th style="width:18%">功能</th><th style="width:34%">实现方式</th><th>对应命令</th></tr>
+<tr><td>任意频率正弦激励</td><td>32 位相位累加 DDS，1024 点正弦表 + 线性插值，DAC + DMA 双缓冲，1 MSPS 更新</td><td><code>F</code> 设频率、<code>A</code> 设幅度</td></tr>
+<tr><td>幅相测量</td><td>ADC 500 kSPS 采 4096 点（8.192 ms 窗），加 Hann 窗后做单频 DFT，同时得到幅度与相位</td><td><code>M</code></td></tr>
+<tr><td>模型辨识</td><td>26 点对数扫频（200 Hz 到 100 kHz），对四种二阶模型分别做最小二乘拟合，取对数域残差最小者</td><td><code>L</code></td></tr>
+</table>
+
+<h2>1.3　信号链</h2>
+<pre>    ┌──────────┐   PA4    ┌────────────┐   输出   ┌──────────┐
+    │  DAC1    │─────────▶│  被测网络   │─────────▶│  ADC1    │
+    │ 1 MSPS   │  正弦激励 │  H(s)      │          │ 500 kSPS │
+    └────▲─────┘          └────────────┘          └────▲─────┘
+         │ TIM6 触发                              TIM3 触发│
+    ┌────┴─────┐                                   ┌────┴─────┐
+    │  DDS 引擎 │◀── 频率/幅度 ──┐        幅相 ──▶ │ 单频 DFT  │
+    └──────────┘                │                  └──────────┘
+                          ┌─────┴──────┐
+                          │  串口命令行  │  USART2 115200
+                          └────────────┘</pre>
+
+<h2>1.4　性能指标</h2>
+<div class="cap">表 1-1　装置主要指标</div>
+<table>
+<tr><th style="width:26%">项目</th><th style="width:30%">数值</th><th>说明</th></tr>
+<tr><td>激励频率范围</td><td>100 Hz ～ 100 kHz</td><td>超出范围自动夹到边界</td></tr>
+<tr><td>激励幅度范围</td><td>0 ～ 2.70 Vpp</td><td>DAC 满量程实测标定值</td></tr>
+<tr><td>DAC 更新率</td><td>1 MSPS</td><td>TIM6 TRGO 触发</td></tr>
+<tr><td>ADC 采样率</td><td>500 kSPS</td><td>TIM3 TRGO 触发，窗口 8.192 ms</td></tr>
+<tr><td>幅度测量误差</td><td>&lt; 3%</td><td>直连回环实测</td></tr>
+<tr><td>辨识耗时</td><td>0.5 ～ 0.8 s</td><td>26 点扫频含稳定等待</td></tr>
+<tr><td>固件占用</td><td>ROM 18.3 KB / RAM 18.1 KB</td><td>512 KB / 128 KB 的一小部分</td></tr>
+</table>
+
+<h1>2　硬件清单</h1>
+
+<div class="cap">表 2-1　必备件</div>
+<table>
+<tr><th style="width:22%">物品</th><th style="width:30%">规格</th><th>用途</th></tr>
+<tr><td>开发板</td><td>DevEBox STM32_F4VE，主控 STM32F407VET6</td><td>512 KB Flash / 192 KB RAM，板载 Type-C 接 PA11/PA12</td></tr>
+<tr><td>USB-TTL 模块</td><td>CH340 / CP2102 / FT232 均可</td><td>板子没有板载串口芯片，必须外接才能看 printf</td></tr>
+<tr><td>USB Type-C 数据线</td><td>能传数据，不是纯充电线</td><td>给板子供电，兼作 DFU 烧录通道</td></tr>
+<tr><td>杜邦线</td><td>母对母 6 根以上</td><td>串口 3 根、DAC/ADC 2 根、BOOT0 1 根</td></tr>
+</table>
+
+<div class="cap">表 2-2　可选件</div>
+<table>
+<tr><th style="width:22%">物品</th><th style="width:30%">规格</th><th>用途</th></tr>
+<tr><td>万用表</td><td>能测直流电压即可</td><td>量 PA4 是否在 1.65 V，验证固件在跑</td></tr>
+<tr><td>示波器</td><td>带宽 10 MHz 以上</td><td>只想眼见为实时用，不做也能完成全部测试</td></tr>
+<tr><td>ST-Link V2</td><td>克隆版可用</td><td>想在线调试、打断点时用；烧录用 DFU 即可</td></tr>
+<tr><td>元件</td><td>见附录 B</td><td>搭已知模型与待测网络</td></tr>
+</table>
+
+<div class="note"><b>先说结论：</b>最小可用配置是「开发板 + USB-TTL + 4 根杜邦线」。示波器、ST-Link、万用表都不是必需的，本装置本身就是一台测量仪器。</div>
+
+<div class="pb"></div>
+<h1>3　接线</h1>
+
+<h2>3.1　引脚定义</h2>
+<div class="cap">表 3-1　全部对外引脚</div>
+<table>
+<tr><th style="width:20%">功能</th><th style="width:16%">引脚</th><th>接到哪</th></tr>
+<tr><td>DAC 激励输出</td><td><b>PA4</b></td><td>被测网络输入，或示波器探头</td></tr>
+<tr><td>ADC 测量输入</td><td><b>PA0</b></td><td>被测网络输出。绝对上限 3.3 V，超过 3.6 V 会打穿</td></tr>
+<tr><td>串口 TX</td><td><b>PA2</b></td><td>USB-TTL 的 <b>RXD</b></td></tr>
+<tr><td>串口 RX</td><td><b>PA3</b></td><td>USB-TTL 的 <b>TXD</b></td></tr>
+<tr><td>地</td><td>GND</td><td>所有设备共地</td></tr>
+<tr><td>SWD 调试</td><td>PA13 / PA14</td><td>ST-Link 的 SWDIO / SWCLK（可选）</td></tr>
+<tr><td>USB DFU</td><td>PA11 / PA12</td><td>板载 Type-C 直连，不用外接</td></tr>
+<tr><td>启动模式</td><td>BOOT0（丝印 BT0）</td><td>接 GND 正常运行，接 3V3 进 DFU</td></tr>
+</table>
+
+<div class="warn"><b>板子左边那个 4 针座是 USART1，不能用。</b>它的丝印是 TX1 / RX1 / GND / 5V，对应 PA9 / PA10。本固件用的是 <b>USART2（PA2 / PA3）</b>，引脚在下排排针上。</div>
+
+<h2>3.2　三档接法</h2>
+<p class="ni">按目的分三档，不要一次全接上。每加一档只引入一个新变量，出问题时原因一定在刚加的那一环。</p>
+
+<div class="cap">表 3-2　三档接线</div>
+<table>
+<tr><th style="width:12%">档位</th><th style="width:44%">接线</th><th>能做什么</th></tr>
+<tr><td><b>A 档</b></td><td>PA2→RXD、PA3→TXD、GND→GND</td><td>看串口、发命令。PA4 / PA0 空着，此时 <code>M</code> 测到的是噪声，正常</td></tr>
+<tr><td><b>B 档</b></td><td>A 档 + 示波器探头接 PA4、地夹接 GND</td><td>看激励波形，验证 DAC 与定时器</td></tr>
+<tr><td><b>C 档</b></td><td>A 档 + PA4→网络输入、网络输出→PA0、网络地→GND</td><td>完整测量与辨识</td></tr>
+</table>
+
+<p class="ni">只想验证测量链路本身，可以跳过网络：<b>一根线把 PA4 直接接 PA0</b>，这就是回环测试。</p>
+
+<h2>3.3　三条铁律</h2>
+<p><b>第一，必须共地。</b>板子 GND、USB-TTL 的 GND、示波器地夹、被测电路地，全部连在一起。只连信号不连地，串口必然乱码，示波器上是一条 50 Hz 粗带。</p>
+<p><b>第二，PA0 只能吃 0～3.3 V。</b>ADC 的绝对最大输入是 3.6 V。已知模型的增益是 5 倍，如果激励设成 1 Vpp 再接到它输入端，输出就是 5 Vpp，直接灌进 PA0，输入保护二极管当场击穿。</p>
+<p><b>第三，断电接线。</b>所有杜邦线在断电状态下插好再上电。带电插拔时公针抖动会在瞬间产生几伏感应尖峰。</p>
+
+<h2>3.4　SWD 接法（可选）</h2>
+<div class="cap">表 3-3　ST-Link 四根线</div>
+<table>
+<tr><th style="width:22%">ST-Link</th><th style="width:22%">板子</th><th>说明</th></tr>
+<tr><td>SWDIO</td><td>PA13</td><td>必需</td></tr>
+<tr><td>SWCLK</td><td>PA14</td><td>必需</td></tr>
+<tr><td>GND</td><td>GND</td><td>必需</td></tr>
+<tr><td>NRST</td><td>NRST</td><td>建议接</td></tr>
+<tr><td><b>3.3V</b></td><td>—</td><td><b>不要接</b>，板子自己供电，两路 3.3 V 会顶牛</td></tr>
+</table>
+
+<h2>3.5　DFU 接法（推荐，已实测）</h2>
+<p>STM32F407 出厂自带一段 ROM bootloader。上电时它检查 BOOT0 电平：为 0 从 Flash 跑用户程序，为 1 则把自己变成一个 USB 设备等电脑灌数据。所以「进 DFU」就是把 BOOT0 拉高再复位。</p>
+<p class="ni">操作顺序不能换：</p>
+<ol>
+<li>拔掉 Type-C（<b>断电</b>）</li>
+<li>用杜邦线把 <b>BT0 针</b>接到旁边的 <b>3V3</b></li>
+<li>插上 Type-C</li>
+<li>按一下复位键 <b>NRST</b></li>
+</ol>
+<p class="ni">成功标志：设备管理器里出现 <code>STM32 BOOTLOADER</code>，硬件 ID 为 <code>USB\VID_0483&amp;PID_DF11</code>。</p>
+<div class="note"><b>顺带一个判据：</b>如果插上 Type-C 后「此电脑」里多出两个打不开的盘（E: 和 F:），那不是 DFU，是出厂演示固件在跑——它把板载 2 MB SPI Flash 和 TF 卡座挂成了两个盘。此时 BOOT0 还没拉高，或者拉高后没按复位。</div>
+
+<div class="pb"></div>
+<h1>4　软件准备</h1>
+
+<h2>4.1　Keil MDK</h2>
+<p>需要 Keil µVision 5，编译器用 <b>ARM Compiler 6（AC6）</b>。工程里已配好 AC6，若你的 Keil 只带 AC5，需在 <code>Options for Target → Target → ARM Compiler</code> 里切到 AC6。</p>
+
+<h2>4.2　器件包（只有建新工程才需要）</h2>
+<p>µVision 本体只带编译器与 CMSIS 内核头，不含任何厂商器件支持。要新建工程，必须装 ST 的器件包 <b>Keil.STM32F4xx_DFP 2.17.0</b>。</p>
+<div class="warn"><b>不要装 3.x 版本。</b>从 3.0.0 起 ST 为配合 CMSIS-Toolbox 重构了包结构，删掉了 CMSIS Drivers、器件头文件和启动文件，只剩 Flash 算法和 SVD。裸机工程需要那些文件，装 3.x 等于没装。</div>
+<p>安装包在本项目 <code>工具\Keil.STM32F4xx_DFP.2.17.0.pack</code>（276 MB），双击即可，Keil 会自动识别。</p>
+<div class="note"><b>本工程不需要它也能编译。</b>器件头 <code>stm32f4xx.h</code>、<code>stm32f407xx.h</code>、内核头 <code>core_cm4.h</code> 等、启动文件 <code>startup_stm32f407xx.s</code> 全部已 vendor 到 <code>Keil\Drivers\CMSIS\</code> 下，不依赖 RTE。只有「从零新建工程」这一种场景才需要器件包。</div>
+
+<h2>4.3　串口驱动</h2>
+<p>插上 USB-TTL 后，设备管理器「端口（COM 和 LPT）」下应出现 <code>USB-SERIAL CH340 (COMx)</code>。没有就装对应芯片的驱动（CH340 驱动很小，随模块卖家一般会给）。</p>
+
+<h2>4.4　烧录驱动（走 DFU 才需要）</h2>
+<p>Windows 默认不给 DFU 设备装可用驱动，Python 或任何工具都访问不到它。用 <b>Zadig</b> 绑一个通用 WinUSB 驱动，只需做一次：</p>
+<ol>
+<li>先让板子进 DFU（见 3.5），设备管理器里出现带感叹号的 <code>STM32 BOOTLOADER</code></li>
+<li>下载 Zadig：<code>https://zadig.akeo.ie/</code>（单文件 exe，免安装；仓库不附带，从官网取）。打开后菜单 <code>Options</code> 勾上 <b>List All Devices</b></li>
+<li>下拉框里只认 <b>USB ID 为 0483 DF11</b> 的那一条</li>
+<li>右侧驱动框选 <b>WinUSB</b>，点 <b>Install Driver</b>，等到底部显示 <code>Driver Installation: SUCCESS</code></li>
+</ol>
+<div class="warn"><b>认错设备的代价很大。</b>Zadig 只看 VID:PID，名字里带 DFU 它不会帮你分辨。曾经误把某个摄像头（<code>3277:0096 Camera DFU Device</code>）的驱动换掉，导致摄像头失效。回滚方法：设备管理器里右键该设备 → 卸载设备 → <b>勾上「尝试删除此设备的驱动程序」</b> → 卸载 → 扫描检测硬件改动。</div>
+
+<div class="pb"></div>
+<h1>5　编译</h1>
+
+<h2>5.1　打开工程</h2>
+<p>双击 <code>Keil\CircuitModel.uvprojx</code>。工程自带全部头文件与启动文件，不勾任何 RTE 组件。</p>
+
+<h2>5.2　编译</h2>
+<p>按 <b>F7</b>（Build）。第一次编译约 3 秒，之后增量编译 1 秒。</p>
+
+<h2>5.3　检查产物</h2>
+<p class="ni">成功的日志末尾应该长这样：</p>
+<pre>linking...
+Program Size: Code=17324 RO-data=1404 RW-data=28 ZI-data=18532
+FromELF: creating hex file...
+".\Objects\CircuitModel.axf" - 0 Error(s), 0 Warning(s).</pre>
+<p class="ni">把这四个数换算一下：</p>
+<pre>ROM = 17324 + 1404 + 28 = 18756 B ≈ 18.3 KB   （512 KB 的 3.6%）
+RAM = 28 + 18532      = 18560 B ≈ 18.1 KB   （128 KB 的 14.1%）</pre>
+<p>ZI-data 18532 B 的构成是合理的：DDS 正弦表 2048 B、ADC 采样缓冲 2048 B、栈 4096 B，其余是各模块静态缓冲与字符串字面量。</p>
+<p class="ni">再确认 hex 文件本身没写错地址：用记事本打开 <code>Objects\CircuitModel.hex</code>，看三处。</p>
+<div class="cap">表 5-1　hex 文件自检</div>
+<table>
+<tr><th style="width:20%">位置</th><th style="width:34%">内容</th><th>含义</th></tr>
+<tr><td>首行</td><td><code>:020000040800F2</code></td><td>高 16 位地址 = 0x0800，数据落在 0x08000000 起的 Flash</td></tr>
+<tr><td>第 2 行开头</td><td><code>:1000000080480020</code></td><td>前四字节 <code>80 48 00 20</code> 小端即 0x20004880，初始栈指针，落在 SRAM 内</td></tr>
+<tr><td>末行</td><td><code>:00000001FF</code></td><td>文件结束记录，没有它说明文件被截断</td></tr>
+</table>
+
+<h2>5.4　编译报错对照</h2>
+<div class="cap">表 5-2　常见编译问题</div>
+<table>
+<tr><th style="width:40%">报错</th><th style="width:30%">原因</th><th>处置</th></tr>
+<tr><td><code>#error Please select first the target STM32F4xx device</code></td><td>没定义器件宏</td><td>Target 页 Define 填 <code>STM32F407xx</code></td></tr>
+<tr><td><code>Scatter Error: no default 'Read/Write' range selected</code></td><td>Target 页内存表为空</td><td>IRAM 0x20000000 / 0x20000，IROM 0x08000000 / 0x80000</td></tr>
+<tr><td><code>L6031U: Could not open scatter description file</code></td><td>Linker 页既勾了自动生成又填了外部 sct，或路径相对输出目录</td><td>取消 <code>Use Memory Layout from Target Dialog</code>，Scatter File 填 <code>.\CircuitModel.sct</code></td></tr>
+<tr><td><code>L6200E: Symbol SystemInit multiply defined</code></td><td>RTE 与 <code>Core\system_stm32f4xx.c</code> 重复</td><td>RTE 里一个组件都不要勾</td></tr>
+<tr><td><code>use of undeclared identifier 'DMA1'</code></td><td>该 .c 没 include <code>stm32f4xx.h</code></td><td>补 include</td></tr>
+<tr><td>编译通过但不出 hex</td><td>Output 页 Output Name 为空、输出目录被写成 <code>.\</code></td><td>Name 填 <code>CircuitModel</code>，目录 <code>.\Objects\</code>，勾 Create HEX File</td></tr>
+<tr><td>中文注释显示成乱码</td><td>编辑器编码不是 UTF-8</td><td><code>Edit → Configuration → Editor → Encoding</code> 选 UTF-8，重开文件</td></tr>
+</table>
+
+<div class="pb"></div>
+<h1>6　烧录</h1>
+
+<p>两条路，任选其一。DFU 只用一根 Type-C 线，不需要额外硬件，是本项目的默认路线；ST-Link 适合想要在线调试的场合。</p>
+
+<h2>6.1　路线 A：USB DFU（已实测通过）</h2>
+
+<h3>第一步　进 DFU</h3>
+<p class="ni">见 3.5：断电 → BT0 接 3V3 → 插 Type-C → 按 NRST。设备管理器出现 <code>STM32 BOOTLOADER</code>。</p>
+
+<h3>第二步　装驱动（只需一次）</h3>
+<p class="ni">见 4.4：Zadig 选 0483 DF11 → Install Driver。</p>
+
+<h3>第三步　烧录</h3>
+<p class="ni">双击 <code>工具\DFU烧录工具\flash.bat</code>。脚本会自动找到 <code>Keil\Objects\CircuitModel.hex</code>，然后擦除、写入、让芯片确认。</p>
+<pre>==============================================================
+  擦除
+==============================================================
+  0x08000000 ~ 0x0800493F  擦除 2 个扇区
+
+==============================================================
+  写入
+==============================================================
+  [#########################] 100.0%  18.3 KB / 18.3 KB
+  写入完成，用时 1.2 秒（15.3 KB/s）
+
+==============================================================
+  烧录成功。
+==============================================================</pre>
+<p class="ni">也可以指定别的 hex：</p>
+<pre>flash.bat "D:\某个路径\firmware.hex"</pre>
+<p>工具是用 Python 直接实现 DFU 1.1 与 ST 的 DfuSe 扩展，不依赖 CubeProgrammer，也不需要 ST 账号。协议细节与踩过的坑写在 <code>工具\DFU烧录工具\README.md</code> 里。</p>
+
+<h3>第四步　退出 DFU</h3>
+<div class="warn"><b>这一步最容易忘，忘了会以为固件坏了。</b>断电 → 把 BOOT0 从 3V3 挪回 <b>GND</b> → 插上 Type-C → 按 NRST。BOOT0 还挂在 3V3 的话，芯片会一直停在 bootloader 里，你的程序根本不跑，串口一片安静。</div>
+
+<h2>6.2　路线 B：ST-Link SWD</h2>
+<p class="ni">接线见 3.4。然后在 Keil 里配置两处：</p>
+<ol>
+<li><b>Debug 页</b>：下拉框选 <code>ST-Link Debugger</code>，勾 <code>Load Application at Startup</code> 与 <code>Run to main()</code>。点 Settings，Port 选 <b>SW</b>，Max Clock 建议 <b>1.8 MHz</b>（克隆版在 4 MHz 下常报 RDDI-DAP Error）。</li>
+<li><b>Flash Download 页</b>：列表里应有 <code>STM32F4xx 512kB Flash  Start: 0x08000000  Size: 0x80000</code>。空白就点 Add，选 <code>ARM\Flash\STM32F4xx_512.FLM</code>（本项目 <code>工具\</code> 与 <code>Keil\Flash\</code> 各存了一份）。勾上 <code>Erase Sectors</code>、<code>Program</code>、<code>Verify</code>、<code>Reset and Run</code>。</li>
+</ol>
+<p class="ni">之后按 <b>F8</b> 下载，日志出现 <code>Verify OK</code> 与 <code>Application running</code> 即成功。</p>
+<div class="cap">表 6-1　ST-Link 常见报错</div>
+<table>
+<tr><th style="width:34%">报错</th><th style="width:30%">原因</th><th>处置</th></tr>
+<tr><td>No ST-Link detected</td><td>驱动没装，或 USB 线是纯充电线</td><td>跑 <code>ARM\STLink\USBDriver\dpinst_amd64.exe</code>，换数据线</td></tr>
+<tr><td>No target connected</td><td>SWDIO/SWCLK 接反、没接、或板子没电</td><td>先量板子 3V3 有没有 3.3 V，再对调两根信号线</td></tr>
+<tr><td>RDDI-DAP Error</td><td>SWD 时钟太快</td><td>降到 1.8 MHz 或 950 kHz</td></tr>
+<tr><td>No Algorithm found for: 08000000H</td><td>Flash 算法没加载</td><td>Flash Download 页 Add 算法</td></tr>
+</table>
+
+<h2>6.3　烧完必做</h2>
+<p class="ni">不管走哪条路，烧完都要确认三件事：</p>
+<ol>
+<li>BOOT0 回到 <b>GND</b></li>
+<li>按一次 <b>NRST</b></li>
+<li>串口助手以 115200 8N1 打开，能看到启动横幅</li>
+</ol>
+
+<div class="pb"></div>
+<h1>7　上电自检</h1>
+
+<h2>7.1　串口横幅</h2>
+<p class="ni">复位后应立刻打出三行：</p>
+<pre>==== Circuit Model Explorer (STM32F407VET6, bare-metal) ====
+SYSCLK = 168000000 Hz, DAC fs = 1000000 SPS, ADC fs = 500000 SPS, N = 4096
+Ready. Type ? for help.</pre>
+<p>这三行信息量很大：<code>168000000</code> 说明 PLL 锁定、时钟树配置正确；<code>1000000</code> 说明 TIM6 分频对；<code>500000</code> 说明 TIM3 分频对；<code>4096</code> 说明采集点数对。四个数任何一个不对，后面的测量都不必做。</p>
+
+<h2>7.2　没有串口时的自检</h2>
+<p>用万用表直流电压档量 <b>PA4 对 GND</b>。程序默认输出 1 kHz / 1.0 Vpp 正弦，直流档读到的是它的平均值，也就是偏置电压，应在 <b>1.65 V 左右</b>。</p>
+<p>读到 1.65 V 说明：程序在跑、时钟正确、DAC 在工作、DMA 在搬运。这一步不需要串口也不需要示波器。</p>
+
+<h2>7.3　串口没输出怎么查</h2>
+<div class="cap">表 7-1　按概率排序</div>
+<table>
+<tr><th style="width:8%">顺序</th><th style="width:36%">检查项</th><th>说明</th></tr>
+<tr><td>1</td><td>BOOT0 是否真的回到 GND</td><td>占一半以上。挂在 3V3 上芯片不跑用户程序</td></tr>
+<tr><td>2</td><td>PA2 是否接 RXD、PA3 是否接 TXD</td><td>TX 接对方 RX，交叉接。接反了完全没输出</td></tr>
+<tr><td>3</td><td>是否共地</td><td>USB-TTL 的 GND 必须接板子 GND</td></tr>
+<tr><td>4</td><td>波特率是否 115200</td><td>晶振 8 MHz、PLL 168 MHz 下的实际分频</td></tr>
+<tr><td>5</td><td>COM 口是否选错</td><td>拔掉 USB-TTL 看哪个口消失</td></tr>
+<tr><td>6</td><td>是否用了 USART1 那个座</td><td>本固件用 USART2，见 3.1 的警告</td></tr>
+</table>
+
+<h1>8　五级测试</h1>
+
+<p>一层一层往上搭，每级只引入一个新变量。出问题时原因一定在刚引入的那一环，这样排查范围永远只有一处。</p>
+
+<div class="cap">表 8-1　五级测试总表</div>
+<table>
+<tr><th style="width:8%">级别</th><th style="width:14%">接线</th><th style="width:26%">命令</th><th>判据</th></tr>
+<tr><td><b>L1</b></td><td>A 档</td><td><code>?</code> → <code>F1000</code> → <code>A1.0</code> → <code>H</code></td><td>每条都有回显，<code>H</code> 打印 2.5257</td></tr>
+<tr><td><b>L2</b></td><td>B 档</td><td><code>F1000</code> → <code>A2.0</code></td><td>示波器见 1 kHz 正弦，2.0 Vpp，中心 1.65 V</td></tr>
+<tr><td><b>L3</b></td><td>PA4 直连 PA0</td><td><code>F1000</code> → <code>A1.0</code> → <code>M</code></td><td>Vpp 与设定值误差 &lt; 3%</td></tr>
+<tr><td><b>L4</b></td><td>C 档 + 已知模型</td><td><code>A0.3</code> → <code>C1.0</code></td><td>err 绝对值 &lt; 5%</td></tr>
+<tr><td><b>L5</b></td><td>C 档 + 待测网络</td><td><code>L</code></td><td>类型正确、f<sub>0</sub> 误差 &lt; 10%、err &lt; 0.05</td></tr>
+</table>
+
+<h2>L1　串口握手</h2>
+<p class="ni">发 <code>H</code> 应得到：</p>
+<pre>|H(1000.0 Hz)| = 2.5257 (8.05 dB)</pre>
+<p>这个数不是随便写的，是已知模型在 1 kHz 处的理论增益：H(s) = 5 / (1e-8·s² + 3e-4·s + 1)，代入 ω = 2π·1000 算得 |H| = 2.5257。它同时验证了浮点单元、数学库、printf 重定向三条链路。</p>
+
+<h2>L2　激励波形（可选）</h2>
+<p>示波器设 DC 耦合、1 V/div。应看到 1 kHz 正弦、2.0 Vpp、中心约 1.65 V。</p>
+<p><b>波形呈阶梯状是正常的。</b>DAC 以 1 MSPS 更新，1 kHz 时一个周期只有 1000 个点，放大就能看到台阶。把频率拉到 <code>F50000</code> 台阶会更明显（一周期 20 点），降到 <code>F100</code> 则很平滑。</p>
+
+<h2>L3　ADC 回环</h2>
+<p>一根杜邦线把 PA4 直接接到 PA0。依次发：</p>
+<pre>F1000
+A1.0
+M</pre>
+<p class="ni">应得到：</p>
+<pre>Vout = 1.0000 Vpp, phase = -1.3 deg</pre>
+<p>幅度误差应小于 3%。相位在直连时理论为 0，实测几度以内都正常，来自 DAC 与 ADC 采样时刻的固定偏差。</p>
+<p class="ni">想更严一点，换几个频点各测一次，幅度都应稳定在 1.0 Vpp 附近：</p>
+<pre>F500  /  F2000  /  F5000  /  F10000</pre>
+<div class="note"><b>低频别低于 300 Hz。</b>ADC 采集窗只有 8.192 ms，100 Hz 时不足一个完整周期，测不准是原理限制，不是故障。</div>
+
+<h2>L4　开环控制</h2>
+<p>接上已知模型电路（见附录 B）：PA4 → 网络输入，网络输出 → PA0，网络地 → GND。</p>
+<div class="warn"><b>先降幅再接线。</b>已知模型增益 5 倍，1 Vpp 进去就是 5 Vpp 出来。先发 <code>A0.3</code> 把激励降到 0.3 Vpp，再接上线。</div>
+<p class="ni">然后发：</p>
+<pre>F1000
+C1.0</pre>
+<p class="ni">应得到：</p>
+<pre>target 1.000 -&gt; Vin 0.396 -&gt; Vout 1.000 Vpp (err 1.85%)</pre>
+<p>固件按 1 kHz 处 |H| = 2.5257 反算出需要的输入幅度 0.396 Vpp，设好之后再实测一次，把误差打出来。误差绝对值小于 5% 算通过。</p>
+<p>若误差在 5% 到 10% 之间，做一次校准：用实测 Vout 除以 2.5257 得到实际增益比，发 <code>K&lt;比值&gt;</code>（例如 <code>K1.032</code>），再跑一次 <code>C1.0</code>。</p>
+
+<h2>L5　未知模型辨识</h2>
+<p>换成待测的 RLC 网络，发：</p>
+<pre>L</pre>
+<p class="ni">约 0.5 到 0.8 秒后输出：</p>
+<pre>type = Low-pass
+K = 1.002, f0 = 1590.3 Hz, Q = 0.3341, err = 0.00812</pre>
+<p>它扫 26 个频点（200 Hz 到 100 kHz），把低通、高通、带通、带阻四种二阶模型分别拟合，取对数域残差最小的那一个。</p>
+<div class="note"><b>为什么不靠找峰值判类型。</b>本题元件范围（R 1～10 kΩ、L 1～10 mH、C 10～100 nF）推出的 Q 在 0.01 到 1 之间。Q ≤ 1 时带通曲线根本没有谐振峰，靠形状判据在原理上就不成立。所以用拟合残差，四个模型各拟一次，谁最像就是谁。</div>
+<p class="ni">判据：</p>
+<ul>
+<li>类型判断正确</li>
+<li>f<sub>0</sub> 相对误差小于 10%</li>
+<li>拟合残差 err 小于 0.05</li>
+</ul>
+<p>err 偏大通常说明网络里有寄生参数（电感绕线电阻、电容 ESL），或者元件标称值与实际值差得远。用万用表量一下电阻、用电桥量一下电感，再对照结果。</p>
+
+<div class="pb"></div>
+<h1>9　命令速查</h1>
+
+<div class="cap">表 9-1　串口命令</div>
+<table>
+<tr><th style="width:14%">命令</th><th style="width:30%">作用</th><th>示例与回显</th></tr>
+<tr><td><code>?</code></td><td>帮助</td><td>两行命令提示</td></tr>
+<tr><td><code>F&lt;f&gt;</code></td><td>设激励频率（100～100000 Hz）</td><td><code>F1000</code> → <code>f = 1000.0 Hz</code></td></tr>
+<tr><td><code>A&lt;vpp&gt;</code></td><td>设激励峰峰值（0～2.70 V）</td><td><code>A1.0</code> → <code>Vin = 1.000 Vpp</code></td></tr>
+<tr><td><code>M</code></td><td>测当前输出的幅度与相位</td><td><code>Vout = 1.0000 Vpp, phase = -1.3 deg</code></td></tr>
+<tr><td><code>H</code></td><td>打印当前频率下已知模型的理论 |H|</td><td><code>|H(1000.0 Hz)| = 2.5257 (8.05 dB)</code></td></tr>
+<tr><td><code>K&lt;kcal&gt;</code></td><td>设校准系数（0.2～5.0）</td><td><code>K1.032</code> → <code>kcal = 1.0320</code></td></tr>
+<tr><td><code>C&lt;vout&gt;</code></td><td>开环控制：让已知模型输出达到指定 Vpp</td><td><code>C1.0</code> → <code>target 1.000 -&gt; Vin 0.396 -&gt; Vout 1.000 (err 1.85%)</code></td></tr>
+<tr><td><code>L</code></td><td>未知模型辨识</td><td><code>type = ... K = ... f0 = ... Q = ... err = ...</code></td></tr>
+</table>
+<p>命令大小写不敏感，可以只发首字母。<b>每条命令必须以回车（或换行）结尾</b>，否则不执行。</p>
+
+<h1>10　故障排查总表</h1>
+
+<div class="cap">表 10-1　按症状反查</div>
+<table>
+<tr><th style="width:26%">症状</th><th style="width:34%">最可能的原因</th><th>处置</th></tr>
+<tr><td>串口完全无输出</td><td>BOOT0 还在 3V3</td><td>挪回 GND 再复位</td></tr>
+<tr><td>串口输出乱码</td><td>波特率不对，或没共地</td><td>115200 8N1，接上 GND</td></tr>
+<tr><td>能收到但发命令没反应</td><td>发送结尾没加回车换行</td><td>串口助手勾「发送新行」</td></tr>
+<tr><td>横幅里 SYSCLK 不是 168000000</td><td>PLL 配置被改过，或晶振不是 8 MHz</td><td>核对 <code>bsp_clock_init()</code> 与板载晶振</td></tr>
+<tr><td>PA4 电压不是 1.65 V</td><td>DAC 或 TIM6 没启动，或程序没跑</td><td>先确认串口有输出；再查 <code>DDS_Init()</code></td></tr>
+<tr><td>示波器上是方波或锯齿</td><td>正弦表没建好，或频率超出范围被夹</td><td>把频率设到 1 kHz 再看</td></tr>
+<tr><td><code>M</code> 读数远小于设定</td><td>PA0 没接，或网络衰减太大</td><td>先用 PA4 直连 PA0 验证测量链路</td></tr>
+<tr><td><code>M</code> 读数远大于设定、贴到 3.3 V</td><td>输入过载，波形削顶</td><td>立刻降 <code>A</code>，检查网络增益</td></tr>
+<tr><td><code>M</code> 返回 <code>measure timeout</code></td><td>ADC DMA 没武装成功</td><td>复位重试；持续出现查 <code>adc_dma_arm()</code></td></tr>
+<tr><td><code>L</code> 返回 <code>learn failed</code></td><td>扫频过程中信号太小或过载</td><td>先 <code>A1.0</code> 保证激励够大，再确认网络接通</td></tr>
+<tr><td><code>L</code> 的类型判错</td><td>Q 很低时四种模型形状接近</td><td>看 err 值，若几种模型 err 接近说明数据本身区分度不足</td></tr>
+<tr><td>烧录报「没找到 DFU 设备」</td><td>没进 DFU，或驱动没装</td><td>先看设备管理器有没有 <code>STM32 BOOTLOADER</code></td></tr>
+<tr><td>烧录报「芯片报错 0x0E」</td><td>状态机被弄脏</td><td>按一次 NRST 让芯片回到干净状态，重跑脚本</td></tr>
+<tr><td>烧完程序不跑</td><td>BOOT0 没回 GND</td><td>见 6.1 第四步</td></tr>
+<tr><td>ST-Link 报 No target connected</td><td>板子没供电，或 SWDIO/SWCLK 接反</td><td>量 3V3；对调两根信号线</td></tr>
+</table>
+
+<div class="pb"></div>
+<h1>11　目录结构说明</h1>
+
+<p>整个项目集中在一个目录下，按用途分成六个文件夹。Keil 工程在 <code>Keil\</code> 里，电路设计资料在 <code>模拟\</code> 里。</p>
+
+<pre>D:\Agent\project\电路模型探究装置\
+├── 教程-从零到跑通.docx / .pdf      ← 本文档
+├── README.md                        总索引
+├── Keil\                            Keil 工程（双击 CircuitModel.uvprojx）
+│   ├── CircuitModel.uvprojx / .sct
+│   ├── Core\  BSP\  App\            源码
+│   ├── Drivers\CMSIS\               器件头与启动文件（已 vendor，不依赖 RTE）
+│   ├── Flash\                       Flash 编程算法备份
+│   ├── Objects\                     编译产物，hex 在这里
+│   └── _verify\                     离线构建的备用 hex
+├── 模拟\                            电路设计
+│   ├── 电路模型探究装置-设计报告.docx / .pdf
+│   ├── 板卡接口标注图.png
+│   └── figs\                        报告用图（14 张）
+├── 工具\                            烧录与辅助工具
+│   ├── DFU烧录工具\                  flash.bat 一键烧录
+│   └── Keil.STM32F4xx_DFP.2.17.0.pack
+├── 文档\                            各类手册
+│   ├── Keil手动建工程指南（不用CubeMX）.pdf
+│   ├── 烧录与上电调试实操手册.pdf
+│   ├── ST-Link烧录与在线调试速查.pdf
+│   ├── 电路模型探究装置-完整操作过程与源码说明.pdf
+│   └── 科研讨论会议记录表-第1~4周.docx
+├── 生成脚本\                        文档与图件的生成脚本（可复现）
+└── docs\                            文档导航、验证边界、整理记录</pre>
+
+<div class="note"><b>日常只需要碰两个地方：</b>改代码进 <code>Keil\</code>，烧录双击 <code>工具\DFU烧录工具\flash.bat</code>。其余文件夹是资料，不需要动。</div>
+
+<h1>附录 A　关键参数</h1>
+
+<div class="cap">表 A-1　时钟与定时器</div>
+<table>
+<tr><th style="width:30%">项目</th><th style="width:24%">数值</th><th>来源</th></tr>
+<tr><td>外部晶振 HSE</td><td>8 MHz</td><td>板载</td></tr>
+<tr><td>SYSCLK</td><td>168 MHz</td><td>PLL：M=8, N=336, P=2</td></tr>
+<tr><td>APB1 / APB2</td><td>42 MHz / 84 MHz</td><td>分频 4 / 2</td></tr>
+<tr><td>TIM6（DAC 触发）</td><td>1 MHz</td><td>APB1 定时器时钟 84 MHz ÷ 84</td></tr>
+<tr><td>TIM3（ADC 触发）</td><td>500 kHz</td><td>同上</td></tr>
+<tr><td>ADC 时钟</td><td>21 MHz</td><td>PCLK2 / 4</td></tr>
+</table>
+
+<div class="cap">表 A-2　缓冲区与采样</div>
+<table>
+<tr><th style="width:30%">项目</th><th style="width:24%">数值</th><th>说明</th></tr>
+<tr><td>正弦表长度</td><td>1024 点</td><td>2 的幂，相位累加取高 10 位查表</td></tr>
+<tr><td>DMA 缓冲</td><td>2048 点</td><td>双缓冲，半满/全满各触发一次重填</td></tr>
+<tr><td>ADC 采集点数</td><td>4096</td><td>窗口 8.192 ms</td></tr>
+<tr><td>DAC 满幅</td><td>2.70 Vpp</td><td>实测标定，非理论 3.3 V</td></tr>
+<tr><td>栈大小</td><td>4 KB</td><td>startup 文件里 Stack_Size = 0x1000</td></tr>
+</table>
+
+<h1>附录 B　已知模型电路</h1>
+
+<p>传递函数 H(s) = 5 / (1×10<sup>-8</sup>·s² + 3×10<sup>-4</sup>·s + 1)，即 K = 5、ω<sub>n</sub> = 10<sup>4</sup> rad/s（f<sub>n</sub> = 1591.5 Hz）、Q = 1/3。这是一个过阻尼二阶低通，两个实极点分别在 607.9 Hz 与 4166.6 Hz，所以幅频曲线单调下降、没有谐振峰。</p>
+
+<p>拓扑是「单位增益 Sallen-Key 低通」串「同相放大 ×5」两级。这样做是为了把 Q 和增益解耦：Sallen-Key 那级只负责极点位置（Q = 1/3 由电阻比决定），增益单独由后级给。</p>
+
+<div class="cap">表 B-1　元件清单</div>
+<table>
+<tr><th style="width:14%">位号</th><th style="width:22%">参数</th><th>要求</th></tr>
+<tr><td>R1</td><td>3.83 kΩ</td><td>金属膜 1%</td></tr>
+<tr><td>R2</td><td>26.1 kΩ</td><td>金属膜 1%</td></tr>
+<tr><td>C1 / C2</td><td>10 nF / 10 nF</td><td><b>C0G（NP0）1%</b></td></tr>
+<tr><td>Rf</td><td>30 kΩ</td><td>金属膜 1%</td></tr>
+<tr><td>Rg</td><td>7.5 kΩ</td><td>金属膜 1%</td></tr>
+<tr><td>A1 / A2</td><td>OPA2134</td><td>双运放一片</td></tr>
+</table>
+
+<div class="warn"><b>电容必须是 C0G，不能用 X7R。</b>X7R 的容值随电压和温度能漂 ±15%，幅频误差会从 1% 级劣化到 15% 级，直接判不合格。买的时候认准 C0G / NP0 字样。</div>
+
+<p><b>供电注意：</b>OPA2134 是双电源运放（±5 ～ ±15 V）。板子只有单 3.3 V，要么另配 ±5 V 电源，要么换单电源轨到轨运放（OPA2350、TLV2372 等）并把静态工作点抬到 VCC/2，否则输出会削顶。</p>
+
+<h1>附录 C　本版变更记录</h1>
+
+<div class="cap">表 C-1　版本历史</div>
+<table>
+<tr><th style="width:16%">版本</th><th style="width:18%">日期</th><th>内容</th></tr>
+<tr><td>1.0</td><td>2026-10-30</td><td>首次发布。DFU 烧录路线已实测通过（18,752 字节 / 1.2 秒）；文件结构按 Keil / 模拟 / 工具 / 文档 / 生成脚本 五类重组</td></tr>
+<tr><td>1.1</td><td>2026-10-30</td><td>上传 GitHub 前精简：移除归档目录、HAL 版固件、重复源码副本与中间产物；Zadig 改为官网下载；烧录脚本统一为 <code>flash.bat</code></td></tr>
+</table>
+
+<p class="ni" style="margin-top:18pt; color:#666; font-size:9pt;">本文档由 HTML 排版后经 Word 转换生成，源文件为 <code>生成脚本\教程源.html</code>，修改后重新转换即可。</p>
+
+</body>
+</html>
