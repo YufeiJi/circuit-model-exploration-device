@@ -18,3 +18,5 @@ Keil/_verify/
 *.uvoptx
 # 超出 GitHub 普通 Git 文件限制；保留本机原件，获取方式见工具说明
 工具/*.pack
+# 第三方驱动工具，本机保留但不入库
+工具/zadig-*.exe
