@@ -747,6 +747,7 @@ html = f"""<!DOCTYPE html>
 </section>
 </body></html>"""
 
+os.makedirs(os.path.dirname(OUT), exist_ok=True)
 with open(OUT, "w", encoding="utf-8") as f:
     f.write(html)
 print("written:", OUT, len(html), "chars")
