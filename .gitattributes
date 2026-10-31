@@ -6,6 +6,7 @@
 *.h text
 *.pdf binary
 *.docx binary
+*.pptx binary
 *.png binary
 *.exe binary
 *.pack binary
