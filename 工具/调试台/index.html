@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>电路模型探究装置 · 调试台</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <b>电路模型探究装置</b>
+    <span>调试台</span>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="serial" role="tab">串口调试</button>
+    <button class="tab" data-tab="flash" role="tab">DFU 烧录</button>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="env-badge" id="envBadge">检测浏览器能力…</div>
+</header>
+
+<main>
+
+  <!-- ======================================================= 串口调试 -->
+  <section class="panel active" id="serial">
+
+    <div class="card toolbar">
+      <div class="field">
+        <label for="portSel">端口</label>
+        <select id="portSel" style="min-width:150px">
+          <option value="">未授权任何串口</option>
+        </select>
+        <button id="btnPickPort" class="icon-btn">选择串口</button>
+      </div>
+
+      <div class="field">
+        <label for="baudSel">波特率</label>
+        <select id="baudSel">
+          <option>115200</option>
+          <option>9600</option>
+          <option>57600</option>
+          <option>230400</option>
+          <option>460800</option>
+          <option>921600</option>
+        </select>
+      </div>
+
+      <button id="btnOpen" class="primary">打开串口</button>
+      <div class="led" id="serialLed"><i></i><span>未连接</span></div>
+
+      <div class="spacer"></div>
+      <button id="btnClear" class="ghost">清屏</button>
+      <button id="btnSaveLog" class="ghost">保存日志</button>
+    </div>
+
+    <div class="work">
+      <div class="term-wrap">
+        <div class="term-bar">
+          <span class="title">终端</span>
+          <span class="chip" id="chipPort">—</span>
+          <span class="chip" id="chipBaud">115200 8N1</span>
+          <span class="chip" id="chipCount">0 B</span>
+          <div class="spacer"></div>
+          <label class="check"><input type="checkbox" id="chkTime" checked>时间戳</label>
+        </div>
+        <div id="term"></div>
+        <div class="send-row">
+          <input type="text" id="sendInput" placeholder="输入命令，回车发送。例如 F1000 或 M" autocomplete="off" spellcheck="false">
+          <label class="check"><input type="checkbox" id="chkNewline" checked>回车换行</label>
+          <button id="btnSend" class="primary">发送</button>
+        </div>
+      </div>
+
+      <aside class="cmd-panel">
+
+        <div class="cmd-group">
+          <h3>常用命令</h3>
+          <div class="cmd-grid">
+            <button class="cmd-btn" data-cmd="?"><kbd>?</kbd>帮助</button>
+            <button class="cmd-btn" data-cmd="M"><kbd>M</kbd>测量幅相</button>
+            <button class="cmd-btn" data-cmd="H"><kbd>H</kbd>看 |H|</button>
+            <button class="cmd-btn" data-cmd="L"><kbd>L</kbd>模型学习</button>
+          </div>
+          <p class="hint">命令不区分大小写，固件按首个字符解析，参数直接跟在后面。</p>
+        </div>
+
+        <div class="cmd-group">
+          <h3>激励设置</h3>
+
+          <div class="cmd-row">
+            <label>F</label>
+            <input type="number" id="inFreq" value="1000" min="1" max="20000" step="1">
+            <span style="font-size:12px;color:var(--text-mute)">Hz</span>
+            <button id="btnFreq">设定</button>
+          </div>
+          <div class="presets">
+            <button class="preset" data-freq="100">100</button>
+            <button class="preset" data-freq="500">500</button>
+            <button class="preset" data-freq="1000">1k</button>
+            <button class="preset" data-freq="2000">2k</button>
+            <button class="preset" data-freq="5000">5k</button>
+            <button class="preset" data-freq="10000">10k</button>
+          </div>
+
+          <div class="cmd-row" style="margin-top:10px">
+            <label>A</label>
+            <input type="number" id="inAmp" value="1.0" min="0.1" max="3.3" step="0.1">
+            <span style="font-size:12px;color:var(--text-mute)">Vpp</span>
+            <button id="btnAmp">设定</button>
+          </div>
+          <div class="presets">
+            <button class="preset" data-amp="0.5">0.5</button>
+            <button class="preset" data-amp="1.0">1.0</button>
+            <button class="preset" data-amp="2.0">2.0</button>
+            <button class="preset" data-amp="3.0">3.0</button>
+          </div>
+        </div>
+
+        <div class="cmd-group">
+          <h3>闭环与校准</h3>
+
+          <div class="cmd-row">
+            <label>K</label>
+            <input type="number" id="inK" value="1.0" min="0.2" max="5" step="0.001">
+            <button id="btnK">校准</button>
+          </div>
+
+          <div class="cmd-row">
+            <label>C</label>
+            <input type="number" id="inC" value="1.5" min="0.1" max="3.3" step="0.1">
+            <span style="font-size:12px;color:var(--text-mute)">Vpp</span>
+            <button id="btnC">开环控制</button>
+          </div>
+
+          <p class="hint">K 是已知模型的幅值校准系数，C 让输出自动逼近目标峰峰值。</p>
+        </div>
+
+        <div class="cmd-group">
+          <h3>一次性序列</h3>
+          <div class="cmd-grid">
+            <button class="cmd-btn" id="btnSweep">三点扫频</button>
+            <button class="cmd-btn" id="btnBanner">重发 ?</button>
+          </div>
+          <p class="hint">依次发 100 Hz / 1 kHz / 10 kHz 的 H 命令，快速看幅频趋势。</p>
+        </div>
+
+      </aside>
+    </div>
+  </section>
+
+  <!-- ======================================================= DFU 烧录 -->
+  <section class="panel" id="flash">
+
+    <div class="grid">
+
+      <div class="col">
+
+        <div class="sect">
+          <h3><span class="n">1</span>连接 DFU 设备</h3>
+          <button id="btnUsb" class="primary" style="width:100%">连接 DFU 设备（0483:DF11）</button>
+          <dl class="kv" style="margin-top:12px">
+            <dt>设备</dt><dd id="usbName" class="empty">未连接</dd>
+            <dt>VID:PID</dt><dd id="usbIds" class="empty">—</dd>
+            <dt>bootloader</dt><dd id="usbVer" class="empty">—</dd>
+            <dt>接口 / 块</dt><dd id="usbIface" class="empty">—</dd>
+            <dt>状态</dt><dd id="usbState" class="empty">—</dd>
+          </dl>
+
+          <details class="steps" style="margin-top:12px">
+            <summary>怎么让板子进 DFU</summary>
+            <div class="body">
+              <ol>
+                <li>上排第 1 针（丝印 <code>BT0</code>）用杜邦线接到旁边的 <code>3V3</code></li>
+                <li>插上板载 Type-C，或按一下复位键</li>
+                <li>设备管理器出现 <code>STM32 BOOTLOADER</code> 即成功</li>
+                <li>烧完拔掉 BOOT0 那根线，再复位，程序才跑</li>
+              </ol>
+              首次使用需用 Zadig 给这个设备装一次 WinUSB 驱动，见 <code>工具\README.md</code>。
+            </div>
+          </details>
+        </div>
+
+        <div class="sect">
+          <h3><span class="n">2</span>选择固件</h3>
+          <div class="drop" id="dropZone">
+            <b>点击选择 .hex 文件</b>
+            <span>或把文件拖到这里<br>默认路径 Keil\Objects\CircuitModel.hex</span>
+          </div>
+          <input type="file" id="fileInput" accept=".hex,.HEX" class="hide">
+          <dl class="kv" style="margin-top:12px">
+            <dt>文件</dt><dd id="fileInfo" class="empty">未选择</dd>
+            <dt>地址范围</dt><dd id="fileRange" class="empty">—</dd>
+            <dt>数据量</dt><dd id="fileSize" class="empty">—</dd>
+            <dt>分段</dt><dd id="fileSegs" class="empty">—</dd>
+          </dl>
+        </div>
+
+        <div class="sect">
+          <h3><span class="n">3</span>烧录</h3>
+          <button id="btnFlash" class="primary" style="width:100%" disabled>开始烧录</button>
+          <div class="progress" id="progWrap"><i id="progBar"></i></div>
+          <div class="prog-line">
+            <span id="progText">等待开始</span>
+            <span id="progPct">0%</span>
+          </div>
+          <p class="hint" style="font-size:11.5px;color:var(--text-mute);margin:9px 0 0;line-height:1.6">
+            每一块都由芯片返回状态确认，失败立即中断。烧完芯片自动复位并重新枚举。
+          </p>
+        </div>
+
+      </div>
+
+      <div class="col" style="min-height:0">
+
+        <div class="tip" style="flex:0 0 auto">
+          <span><b>两条烧录路线并存。</b>本页走浏览器原生 WebUSB，免安装；若浏览器访问不到设备（驱动被 CubeProgrammer 占用等），改用
+          <code>工具\DFU烧录工具\flash.bat</code> 命令行版，或直接用 ST-Link 在 Keil 里按 F8。</span>
+        </div>
+
+        <div class="log-wrap">
+          <div class="log-head">
+            <span class="title">烧录日志</span>
+            <div class="spacer"></div>
+            <button id="btnClearLog" class="ghost">清空</button>
+            <button id="btnSaveLog2" class="ghost">保存</button>
+          </div>
+          <div id="flog"></div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

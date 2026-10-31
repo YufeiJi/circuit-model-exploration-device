@@ -12,7 +12,8 @@
    Debug 页选 `ST-Link Debugger`，Flash Download 页确认算法是 `STM32F4xx 512kB Flash`，
    按 **F8** 下载。不用拨 BOOT0，不用 CubeProgrammer。
 4. **ST-Link 连不上时（DFU，已实测可用）**：BT0 针短接 3V3 → 复位 → 双击
-   `..\工具\DFU烧录工具\flash.bat`（自带工具，不需要 CubeProgrammer、不需要装驱动以外的软件）
+   `..\工具\调试台\启动调试台.bat`，在「DFU 烧录」页拖入 hex 烧录
+   （网页版，不需要 CubeProgrammer；连不上设备时退回 `..\工具\DFU烧录工具\flash.bat`）
    → 拔掉 BOOT0 杜邦线 → 复位。
 
 > Flash 算法已放在 `D:\daxue\Keil5 32\ARM\Flash\STM32F4xx_512.FLM`，工程内也存了一份 `Flash\STM32F4xx_512.FLM`。
@@ -107,7 +108,8 @@ L            未知模型自主学习（26 点扫频 + 分类 + 参数；耗时�
 ## 相关文档
 
 - `..\教程-从零到跑通.pdf` —— **从零到跑通的完整教程**（硬件、编译、烧录、测试、排错）
-- `..\工具\DFU烧录工具\README.md` —— Type-C 直烧工具（纯 Python，已实测）
+- `..\工具\调试台\README.md` —— 网页版上位机：串口调试 + DFU 烧录（日常首选）
+- `..\工具\DFU烧录工具\README.md` —— Type-C 直烧工具（纯 Python，已实测，命令行备用）
 - `..\文档\ST-Link烧录与在线调试速查.pdf` —— SWD 方案（接线、Keil 配置、下载、调试、报错对照）
 - `..\文档\烧录与上电调试实操手册.pdf` —— 从编译产物到五级验证的全流程
 - `..\文档\Keil手动建工程指南（不用CubeMX）.pdf` —— 建工程、编译、装器件包
