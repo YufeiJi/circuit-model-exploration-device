@@ -104,13 +104,12 @@ Ready. Type ? for help.
 
 烧完要**拔掉 BOOT0 那根线**再复位，否则芯片会再次进入 DFU 而不是跑程序。
 
-### 与命令行版的关系
+### 烧录失败怎么办
 
-`工具\DFU烧录工具\flash.bat` 还在，功能一样，是纯 Python 实现。
+浏览器访问 USB 对驱动有硬要求：**设备必须绑 WinUSB**。如果设备被 STM32CubeProgrammer 之类
+独占过，或者 Zadig 装成了 libusbK / libusb-win32，本页会连不上。用 Zadig 重选 WinUSB 装一次即可。
 
-两条路线并存的原因：浏览器访问 USB 受驱动状态影响，如果设备被 STM32CubeProgrammer 之类
-独占过、或者 WinUSB 被换成了 libusbK，网页版会连不上；命令行版用 libusb 后端，容错面不同。
-两条都失败时还有第三条：ST-Link 接 SWD，在 Keil 里直接按 F8。
+驱动暂时搞不定就换路线：ST-Link 接 SWD（PA13/PA14），Keil 里直接按 F8，不用动 BOOT0。
 
 ## 已知限制
 

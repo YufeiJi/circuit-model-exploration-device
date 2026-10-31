@@ -296,7 +296,7 @@ note("有 ST-Link 就别走这条路", "如果手上有 ST-Link V2，第 4、5 �
      "本文第 2、3、6、7、8、9、10 章对两种方式都适用。")
 
 warn("烧录软件三选一。", "① ST-Link：Keil 里按 F8，不用另装软件；"
-     "② 本项目自带的 DFU 烧录工具（工具\\DFU烧录工具\\flash.bat），不需要 CubeProgrammer，"
+     "② 本项目的网页版调试台（工具\\调试台\\启动调试台.bat），不需要 CubeProgrammer，"
      "但要先用 Zadig 给它绑一次 WinUSB 驱动；"
      "③ STM32CubeProgrammer：官方工具，自带驱动，但要注册 ST 账号才能下载。三选一即可。")
 
@@ -477,8 +477,8 @@ h1("4　第 3 步：进 DFU")
 
 h2("4.1　准备烧录软件")
 
-note("可以跳过这一节", "如果不想装 CubeProgrammer，用工具目录下的「DFU烧录工具」即可："
-     "双击 flash.bat 就完成烧录，只要先用 Zadig 给 STM32 BOOTLOADER 绑一次 WinUSB 驱动。"
+note("可以跳过这一节", "如果不想装 CubeProgrammer，用工具目录下的「调试台」即可："
+     "双击 启动调试台.bat，切到 DFU 烧录页拖入 hex，只要先用 Zadig 给 STM32 BOOTLOADER 绑一次 WinUSB 驱动。"
      "下面的内容是给选择 CubeProgrammer 的人看的。")
 
 body("CubeProgrammer 是 ST 的官方烧录工具，和 Keil、CubeMX 都不是一个东西。"
