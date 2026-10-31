@@ -129,6 +129,7 @@ Ready. Type ? for help.
 | 点「选择串口」没有弹窗 | 不是用户手势触发，或被策略拦截 | 直接点按钮，不要用脚本调用 |
 | 打开串口报 `Failed to open` | 端口被别的程序占着 | 关掉串口助手、Keil 的 UART 窗口 |
 | 终端全是乱码 | 波特率不对 | 确认 115200，且 GND 已接 |
+| 中文里夹着 `◆` 方块 | 旧版逐块新建解码器，汉字被切断 | 页面强刷 `Ctrl+F5`；新版已改为流式解码 |
 | 能收到但发命令没反应 | 结尾没带回车 | 勾上「回车换行」 |
 | 弹窗里没有 STM32 BOOTLOADER | 没进 DFU 或没装驱动 | BOOT0 接 3V3 后复位；用 Zadig 装 WinUSB |
 | 连接 DFU 报 `Access denied` | 驱动不是 WinUSB，或被独占 | 用 Zadig 重装 WinUSB，关掉 CubeProgrammer |

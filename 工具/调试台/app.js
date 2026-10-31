@@ -63,6 +63,9 @@ const S = {
   bytes: 0,
   pending: '',
   lines: 0,
+  // 必须复用同一个 decoder 并开 stream 模式：串口每次 read() 只给一块字节，
+  // 一个汉字的三字节可能被切在两块之间，逐块新建 decoder 会把后半截当成非法字节。
+  decoder: new TextDecoder('utf-8', { fatal: false }),
 };
 
 const term = $('term');
@@ -188,6 +191,7 @@ async function openSerial() {
   S.writer = port.writable.getWriter();
   S.reading = true;
   S.bytes = 0;
+  S.decoder = new TextDecoder('utf-8', { fatal: false });
   updateCount();
 
   $('chipPort').textContent = portSel.options[portSel.selectedIndex]?.textContent || '串口';
@@ -216,7 +220,7 @@ async function readLoop(port) {
         if (value && value.length) {
           S.bytes += value.length;
           updateCount();
-          termRaw(new TextDecoder('utf-8', { fatal: false }).decode(value), 'rx');
+          termRaw(S.decoder.decode(value, { stream: true }), 'rx');
         }
       }
     } catch (e) {
@@ -236,6 +240,9 @@ async function closeSerial() {
   try { if (S.writer) { S.writer.releaseLock(); S.writer = null; } } catch (_) {}
   try { if (S.port) await S.port.close(); } catch (_) {}
   S.port = null;
+  // 把 decoder 里可能残留的半个字符冲出来
+  const tail = S.decoder.decode();
+  if (tail) termRaw(tail, 'rx');
   if (S.pending) { termLine(S.pending, 'rx'); S.pending = ''; }
 
   setLed($('serialLed'), '', '未连接');
