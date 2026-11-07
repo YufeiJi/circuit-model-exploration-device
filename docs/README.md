@@ -13,3 +13,5 @@
 原始 DOCX/PDF 保留，GitHub 可能不能预览较大的 Word 文件，可以下载后打开。
 
 完整处置历史见 [仓库整理记录](REPOSITORY_PREPARATION.md)。私有仓库共享步骤见 [协作者指南](COLLABORATION.md)。
+
+本地新增资料与归档位置见 [文件夹导航](文件夹整理.md)。硬件版本不同，请勿混用接线图。

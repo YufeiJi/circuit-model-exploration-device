@@ -20,3 +20,14 @@ Keil/_verify/
 工具/*.pack
 # 第三方驱动工具，本机保留但不入库
 工具/zadig-*.exe
+
+# 临时排查目录与本地构建日志
+/tmp/
+/Keil/*-build.log
+
+# 本机历史归档、解包审阅副本与调试日志
+/归档/
+/hardware/review_rc_zip/
+/Keil/*.map
+/Keil/*.log
+/文档/串口日志-*.txt
